@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Display Webcam Stream</title>
+<style>
+#container {
+    margin: 0px auto;
+    width: 500px;
+    height: 375px;
+    border: 10px #333 solid;
+}
+#videoElement, #canvasElement {
+    width: 500px;
+    height: 375px;
+    background-color: #666;
+}
+#results {
+    margin-top: 10px;
+}
+</style>
+</head>
+<body>
+<div id="container">
+    <video autoplay="true" id="videoElement"></video>
+    <canvas id="canvasElement" style="display:none;"></canvas>
+    <div id="results">Results will appear here</div>
+</div>
+<script>
+    var video = document.getElementById("videoElement");
+    var canvas = document.getElementById("canvasElement");
+    var context = canvas.getContext('2d');
+    
+    navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+        video.srcObject = stream;
+        video.onloadedmetadata = function() {
+            // Ensure the canvas size matches the video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            video.play(); // Start playing video when it is ready
+        };
+        video.onplay = function() {
+            setInterval(function(){
+                if (!video.paused && !video.ended) {
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    var dataURL = canvas.toDataURL('image/png');
+                    fetch('/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({'image': dataURL})
+                    }).then(response => response.json()).then(data => {
+                        document.getElementById('results').innerText = 'Prediction: ' + data.result;
+                    }).catch(error => console.error('Error:', error));
+                }
+            }, 500); // Send frame every 500 milliseconds
+        };
+    }).catch(function(error) {
+        console.log("Something went wrong!", error);
+    });
+    </script>    
+</body>
+</html>
